@@ -1,0 +1,20 @@
+<?xml version="1.0"?>
+<!--
+path: 应用程序路径
+rate: 监听频率(秒)
+alone: 是否运行在独立的控制台
+-->
+<!--
+    <process>
+        <path>C:/Program Files/Notepad++/notepad++.exe</path>
+        <rate>1</rate>
+        <alone>true</alone>
+    </process>
+-->
+<root>
+    <process>
+        <path>E:/BVMiddleware/BVMiddleware.exe</path>
+        <rate>10</rate>
+        <alone>false</alone>
+    </process>
+</root>
