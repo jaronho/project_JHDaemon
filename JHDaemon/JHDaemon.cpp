@@ -146,7 +146,7 @@ int main() {
             ai->path = path;
             ai->rate = rate;
             ai->alone = alone;
-            ai->pid = getAppProcessId(path);
+            ai->pid = 0;
             s_appInfoList.push_back(ai);
         }
         log("======================================================\n", false);
@@ -159,10 +159,11 @@ int main() {
         for (size_t j = 0, l = s_appInfoList.size(); j < l; ++j) {
             AppInfo* ai = s_appInfoList[j];
             if (0 == Process::isAppFileExist(ai->path.c_str())) {
-                if (0 == ai->pid) {
-                    int ret = Process::runApp(ai->path.c_str(), NULL, ai->alone, &ai->pid);
+                unsigned long pid = getAppProcessId(ai->path);
+                if (0 == pid) {
+                    int ret = Process::runApp(ai->path.c_str(), NULL, ai->alone, &pid);
                     if (0 == ret) {
-                        log("Start application \"" + ai->path + "\", pid = [" + Common::toString((long)ai->pid) + "]\n", true);
+                        log("Start application \"" + ai->path + "\", pid = [" + Common::toString((long)pid) + "]\n", true);
                     } else {
                         std::string str;
                         if (1 == ret) {
@@ -177,31 +178,32 @@ int main() {
                         log("[ERROR] start application \"" + ai->path + "\" fail: " + str + " \n", true);
                     }
                 } else {
-                    log("Application \"" + ai->path + "\" has been started, pid = [" + Common::toString((long)ai->pid) + "]\n", true);
+                    log("Application \"" + ai->path + "\" has been started, pid = [" + Common::toString((long)pid) + "]\n", true);
                 }
+                ai->pid = pid;
             } else {
                 log("[ERROR] not exist application file \"" + ai->path + "\"\n", true);
             }
             TimerManager::getInstance()->runLoop(ai->id.c_str(), ai->rate * 1000, [](timer_st* tm, unsigned long runCount, void* param)->void {
                 AppInfo* ai = (AppInfo*)param;
-                if (ai->pid > 0) {
-                    if (isProcessExist(ai->pid)) {
-                        return;
+                unsigned long pid = getAppProcessId(ai->path);
+                if (pid > 0) {
+                    if (ai->pid > 0 && pid != ai->pid) {
+                        log("Application \"" + ai->path + "\" reassociate, old pid = [" + Common::toString((long)ai->pid) + "], new pid = [" + Common::toString((long)pid) + "]\n", true);
                     }
+                    ai->pid = pid;
+                    return;
+                } else if (ai->pid > 0) {
                     log("[WARNING] application \"" + ai->path + "\", pid = [" + Common::toString((long)ai->pid) + "] has been ended\n", true);
                 }
-                ai->pid = getAppProcessId(ai->path);
-                if (ai->pid > 0) {
-                    log("Application \"" + ai->path + "\" associated with the new pid = [" + Common::toString((long)ai->pid) + "]\n", true);
-                    return;
-                }
+                ai->pid = 0;
                 if (0 != Process::isAppFileExist(ai->path.c_str())) {
                     log("[ERROR] not exist application file \"" + ai->path + "\"\n", true);
                     return;
                 }
-                int ret = Process::runApp(ai->path.c_str(), NULL, ai->alone, &ai->pid);
+                int ret = Process::runApp(ai->path.c_str(), NULL, ai->alone, &pid);
                 if (0 == ret) {
-                    log("Restart application \"" + ai->path + "\", pid = [" + Common::toString((long)ai->pid) + "]\n", true);
+                    log("Restart application \"" + ai->path + "\", pid = [" + Common::toString((long)pid) + "]\n", true);
                 } else {
                     std::string str;
                     if (1 == ret) {
@@ -215,6 +217,7 @@ int main() {
                     }
                     log("[ERROR] restart application \"" + ai->path + "\" fail: " + str + " \n", true);
                 }
+                ai->pid = pid;
             }, ai);
         }
         /* 主循环 */
