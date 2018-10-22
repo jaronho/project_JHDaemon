@@ -147,6 +147,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="common\Common.h" />
     <ClInclude Include="logfile\logfile.h" />
     <ClInclude Include="logfile\logfilewrapper.h" />
     <ClInclude Include="process\process.h" />
@@ -159,6 +160,7 @@
     <ClInclude Include="xmlhelper\XmlHelper.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="common\Common.cpp" />
     <ClCompile Include="JHDaemon.cpp" />
     <ClCompile Include="logfile\logfile.c" />
     <ClCompile Include="logfile\logfilewrapper.c" />

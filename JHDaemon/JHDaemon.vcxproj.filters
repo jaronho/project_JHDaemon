@@ -28,6 +28,9 @@
     <Filter Include="头文件\xmlhelper">
       <UniqueIdentifier>{49730bd3-40e5-45bd-ace8-60d7bbdbd0c6}</UniqueIdentifier>
     </Filter>
+    <Filter Include="头文件\common">
+      <UniqueIdentifier>{8f09b3cc-bc43-44bb-a76d-06515094f510}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="stdafx.h">
@@ -60,6 +63,9 @@
     <ClInclude Include="xmlhelper\XmlHelper.h">
       <Filter>头文件\xmlhelper</Filter>
     </ClInclude>
+    <ClInclude Include="common\Common.h">
+      <Filter>头文件\common</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="stdafx.cpp">
@@ -88,6 +94,9 @@
     </ClCompile>
     <ClCompile Include="xmlhelper\XmlHelper.cpp">
       <Filter>头文件\xmlhelper</Filter>
+    </ClCompile>
+    <ClCompile Include="common\Common.cpp">
+      <Filter>头文件\common</Filter>
     </ClCompile>
   </ItemGroup>
 </Project>

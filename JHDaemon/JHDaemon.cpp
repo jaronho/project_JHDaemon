@@ -2,6 +2,7 @@
 //
 
 #include "stdafx.h"
+#include "common/Common.h"
 #include "logfile/logfilewrapper.h"
 #include "process/process.h"
 #include "timer/TimerManager.h"
@@ -13,6 +14,7 @@ public:
     std::string path;           /* 应用程序路径 */
     unsigned int rate;          /* 监听频率(秒) */
     bool alone;                 /* 是否运行在独立的控制台 */
+    unsigned long pid;          /* 进程id */
 };
 
 static logfilewrapper_st* s_logWrapper = NULL;
@@ -29,62 +31,22 @@ std::string nowdate(void) {
     return buf;
 }
 
-static std::string replaceString(std::string str, const std::string& rep, const std::string& dest) {
-    if (str.empty() || rep.empty()) {
-        return str;
-    }
-    std::string::size_type pos = 0;
-    while (std::string::npos != (pos = str.find(rep, pos))) {
-        str.replace(pos, rep.size(), dest);
-        pos += dest.size();
-    }
-    return str;
-}
-
-static std::vector<std::string> splitString(std::string str, const std::string& pattern) {
-    std::vector<std::string> result;
-    if (str.empty() || pattern.empty()) {
-        return result;
-    }
-    str.append(pattern);
-    std::string::size_type pos;
-    for (size_t i = 0; i < str.size(); ++i) {
-        pos = str.find(pattern, i);
-        if (pos < str.size()) {
-            result.push_back(str.substr(i, pos - i));
-            i = pos + pattern.size() - 1;
-        }
-    }
-    return result;
-}
-
-static std::string getCurrentDir(void) {
-    char* buffer = _getcwd(NULL, 0);
-    if (!buffer) {
-        return "";
-    }
-    std::string currentDir(buffer);
-    free(buffer);
-    return currentDir + "/";
-}
-
-static int isAbsolutePath(const char* path) {
-    if (!path || 0 == strlen(path)) {
-        return 0;
-    }
-    if (strlen(path) >= 2 && ((path[0] >= 'a' && path[0] <= 'z') || (path[0] >= 'A' && path[0] <= 'Z')) && (':' == path[1])) {
-        return 1;
-    }
-    return 0;
-}
-
-static bool isAppRunning(const std::string& appPath) {
+static bool isProcessExist(unsigned long pid) {
     for (size_t i = 0, len = s_processList.size(); i < len; ++i) {
-        if (appPath == s_processList[i].exePath() + s_processList[i].exeFile) {
+        if (pid == s_processList[i].id) {
             return true;
         }
     }
     return false;
+}
+
+static unsigned long getAppProcessId(const std::string& appPath) {
+    for (size_t i = 0, len = s_processList.size(); i < len; ++i) {
+        if (appPath == s_processList[i].exePath() + s_processList[i].exeFile) {
+            return s_processList[i].id;
+        }
+    }
+    return 0;
 }
 
 static bool initLogFile(const std::string& logBasename, const std::string& logExtname) {
@@ -133,18 +95,18 @@ int main() {
             return 0;
         }
         log("==================== applications ====================\n", false);
-        std::string currentDir = replaceString(getCurrentDir(), "\\", "/");
+        std::string currentDir = Common::replaceString(Common::getCurrentDir(), "\\", "/");
         for (size_t i = 0, len = children.size(); i < len; ++i) {
             char id[64] = { 0 };
             sprintf_s(id, "process_%03d", i + 1);
             std::string path = XmlHelper::getNodeText(children[i], "path").as_string();
-            path = replaceString(path, "\\", "/");
-            if (!isAbsolutePath(path.c_str())) {
-                std::vector<std::string> currentDirVec = splitString(currentDir, "/");
+            path = Common::replaceString(path, "\\", "/");
+            if (!Common::isAbsolutePath(path.c_str())) {
+                std::vector<std::string> currentDirVec = Common::splitString(currentDir, "/");
                 if (!currentDirVec.empty()) {
                     currentDirVec.erase(currentDirVec.end() - 1);
                 }
-                std::vector<std::string> pathVec = splitString(path, "/");
+                std::vector<std::string> pathVec = Common::splitString(path, "/");
                 std::vector<std::string>::iterator iter = pathVec.begin();
                 while (pathVec.end() != iter) {
                     if (".." == *iter) {
@@ -184,6 +146,7 @@ int main() {
             ai->path = path;
             ai->rate = rate;
             ai->alone = alone;
+            ai->pid = getAppProcessId(path);
             s_appInfoList.push_back(ai);
         }
         log("======================================================\n", false);
@@ -196,10 +159,10 @@ int main() {
         for (size_t j = 0, l = s_appInfoList.size(); j < l; ++j) {
             AppInfo* ai = s_appInfoList[j];
             if (0 == Process::isAppFileExist(ai->path.c_str())) {
-                if (!isAppRunning(ai->path)) {
-                    int ret = Process::runApp(ai->path.c_str(), NULL, ai->alone);
+                if (0 == ai->pid) {
+                    int ret = Process::runApp(ai->path.c_str(), NULL, ai->alone, &ai->pid);
                     if (0 == ret) {
-                        log("Start application \"" + ai->path + "\"\n", true);
+                        log("Start application \"" + ai->path + "\", pid = [" + Common::toString((long)ai->pid) + "]\n", true);
                     } else {
                         std::string str;
                         if (1 == ret) {
@@ -213,22 +176,32 @@ int main() {
                         }
                         log("[ERROR] start application \"" + ai->path + "\" fail: " + str + " \n", true);
                     }
+                } else {
+                    log("Application \"" + ai->path + "\" has been started, pid = [" + Common::toString((long)ai->pid) + "]\n", true);
                 }
             } else {
                 log("[ERROR] not exist application file \"" + ai->path + "\"\n", true);
             }
             TimerManager::getInstance()->runLoop(ai->id.c_str(), ai->rate * 1000, [](timer_st* tm, unsigned long runCount, void* param)->void {
                 AppInfo* ai = (AppInfo*)param;
-                if (isAppRunning(ai->path)) {
+                if (ai->pid > 0) {
+                    if (isProcessExist(ai->pid)) {
+                        return;
+                    }
+                    log("[WARNING] application \"" + ai->path + "\", pid = [" + Common::toString((long)ai->pid) + "] has been ended\n", true);
+                }
+                ai->pid = getAppProcessId(ai->path);
+                if (ai->pid > 0) {
+                    log("Application \"" + ai->path + "\" associated with the new pid = [" + Common::toString((long)ai->pid) + "]\n", true);
                     return;
                 }
                 if (0 != Process::isAppFileExist(ai->path.c_str())) {
                     log("[ERROR] not exist application file \"" + ai->path + "\"\n", true);
                     return;
                 }
-                int ret = Process::runApp(ai->path.c_str(), NULL, ai->alone);
+                int ret = Process::runApp(ai->path.c_str(), NULL, ai->alone, &ai->pid);
                 if (0 == ret) {
-                    log("Restart application \"" + ai->path + "\"\n", true);
+                    log("Restart application \"" + ai->path + "\", pid = [" + Common::toString((long)ai->pid) + "]\n", true);
                 } else {
                     std::string str;
                     if (1 == ret) {

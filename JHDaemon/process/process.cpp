@@ -7,8 +7,8 @@
 #if defined(WIN32) || defined(_WIN32) || defined(WIN64) || defined(_WIN64)
 #include <Windows.h>
 #include <TlHelp32.h>
-#endif
 #pragma warning(disable: 4996)
+#endif
 //--------------------------------------------------------------------------
 static char* wchar2char(const wchar_t* wstr) {
     char* buf = NULL;
@@ -209,7 +209,7 @@ void Process::killApp(const char* appName) {
     }
 }
 //--------------------------------------------------------------------------
-int Process::runApp(const char* appName, const char* workingDir /*= NULL*/, bool newConsole /*= false*/) {
+int Process::runApp(const char* appName, const char* workingDir /*= NULL*/, bool newConsole /*= false*/, unsigned long* pid /*= NULL*/) {
     if (!appName || 0 == strlen(appName)) {
         return 1;
     }
@@ -245,6 +245,9 @@ int Process::runApp(const char* appName, const char* workingDir /*= NULL*/, bool
             free(workingDirW);
         }
         return 4;
+    }
+    if (pid) {
+        *pid = pi.dwProcessId;
     }
     free(appNameW);
     if (workingDirW) {
